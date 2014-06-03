@@ -78,11 +78,10 @@ public class ViewMasterModel {
 					rowIndex++;
 				}
 				
+				if(!fileName.endsWith(".csv"))
+					fileName += ".csv";
 				String newFileName = fileName;
 				if(tableIndex > 0) {
-					if(!fileName.endsWith(".csv"))
-						fileName += ".csv";
-					
 					String[] fileNameData = fileName.split("\\.");
 					fileNameData[fileNameData.length - 1] = tableIndex + "." + fileNameData[fileNameData.length - 1];
 					newFileName = "";
