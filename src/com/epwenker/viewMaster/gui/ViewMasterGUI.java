@@ -36,7 +36,7 @@ public class ViewMasterGUI extends JFrame implements ActionListener {
 		super();
 		
 		setSize(300, 60);
-		setLocation(50, 50);
+		setLocation(60, 60);
 		setResizable(false);
 		setTitle(APP_TITLE);
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
