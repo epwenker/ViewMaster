@@ -81,6 +81,7 @@ public class ViewMasterGUI extends JFrame implements ActionListener {
 		if(e.getSource() == saveButton) {
 			try {
 				model.saveToFile(getFileName(), urlField.getText());
+				JOptionPane.showMessageDialog(this, "File Saved Successfully.");
 			} catch (IllegalArgumentException exp) {
 				JOptionPane.showMessageDialog(this, "Unable to save requirements file.");
 			} catch (IllegalStateException exp) {
