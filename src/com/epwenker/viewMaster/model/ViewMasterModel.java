@@ -14,87 +14,139 @@ import java.util.List;
 
 public class ViewMasterModel {
 
-	private ArrayList<String[][]> data = new ArrayList<String[][]>();
+	private ArrayList<ArrayList<String[][]>> data;
+	private ArrayList<String> urlList;
 	
-	public void saveToFile(String fileName, String url) {
+	private long startTime;
+	
+	public void fillListFromUrl(String url) {
+		urlList = new ArrayList<String>();
+		try {
+			// get html from main page
+			Document doc = Jsoup.connect(url).get();
+			Element body = doc.getElementsByTag("body").get(0);
+			String html = body.toString();
+			
+			// first pass cleaning
+			html = Jsoup.clean(html, Whitelist.none().addTags("li", "a").addAttributes(":all", "href"));
+			doc = Jsoup.parse(html);
+			
+			// get list items from cleaned html
+			Elements listItems = doc.getElementsByTag("li");
+			html = "";
+			for(int i = 0; i < listItems.size(); i++)
+				html += listItems.get(i) + "\n";
+			
+			// second pass cleaning
+			html = Jsoup.clean(html, Whitelist.none().addTags("a").addAttributes(":all", "href"));
+			doc = Jsoup.parse(html);
+			
+			// add desired links to urlList
+			Elements links = doc.getElementsByTag("a");
+			for(Element link : links)
+				if(link.hasAttr("href") && !link.attr("href").contains("#") && !link.attr("href").contains("http"))
+					urlList.add(link.attr("href"));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
+	
+	public long saveToFile(String fileName, String url) {
+		
+		startTime = System.currentTimeMillis();
+		
 		// check validity of filename and url
 		if(fileName == null || fileName.trim().isEmpty())
 			throw new IllegalArgumentException("Invalid File Name.");
 		if(url == null || url.trim().isEmpty())
 			throw new IllegalArgumentException("Invalid URL.");
 		
+		fillListFromUrl(url);
+		
+		data = new ArrayList<ArrayList<String[][]>>();
+		
 		// parsing
 		try {
-			// clean html
-			Document doc = Jsoup.connect(url).get();
-			Element body = doc.getElementsByTag("body").get(0);
-			String html = body.toString();
-			html = Jsoup.clean(html, Whitelist.none().addTags("table", "tr", "th", "td", "br").addAttributes(":all", "rowspan"));
-			doc = Jsoup.parse(html);
-			
-			
-			Elements tables = doc.getElementsByTag("table");
-			for (Element table : tables) {
+			for(String link : urlList) {
+				ArrayList<String[][]> linkData = new ArrayList<String[][]>();
 				
-				Elements rows = table.getElementsByTag("TR");
+				link = url + link;
 				
-				int maxCols = 0;
-				for(Element row : rows)
-					if(row.children().size() > maxCols)
-						maxCols = row.children().size();
+				// clean html
+				Document doc = Jsoup.connect(link).get();
+				Element body = doc.getElementsByTag("body").get(0);
+				String html = body.toString();
+				html = Jsoup.clean(html, Whitelist.none().addTags("table", "tr", "th", "td", "br").addAttributes(":all", "rowspan"));
+				doc = Jsoup.parse(html);
 				
-				String[][] dataArray = new String[rows.size()][maxCols];
-				int rowIndex = 0;
-				for(Element row : rows) {
-					Elements cells = row.children();
-					int cellIndex = 0;
-					for(Element cell : cells) {				
-						int rowSpan = 1;
-						if(cell.hasAttr("ROWSPAN"))
-							rowSpan = Integer.parseInt(cell.attr("ROWSPAN"));
-						if(rowSpan > dataArray.length - rowIndex)
-							rowSpan = dataArray.length - rowIndex; // make sure rowspan doesn't exceed number of rows
+				
+				Elements tables = doc.getElementsByTag("table");
+				for (Element table : tables) {
+					
+					Elements rows = table.getElementsByTag("TR");
+					
+					int maxCols = 0;
+					for(Element row : rows)
+						if(row.children().size() > maxCols)
+							maxCols = row.children().size();
+					
+					String[][] dataArray = new String[rows.size()][maxCols];
+					int rowIndex = 0;
+					for(Element row : rows) {
+						Elements cells = row.children();
+						int cellIndex = 0;
+						for(Element cell : cells) {				
+							int rowSpan = 1;
+							if(cell.hasAttr("ROWSPAN"))
+								rowSpan = Integer.parseInt(cell.attr("ROWSPAN"));
+							if(rowSpan > dataArray.length - rowIndex)
+								rowSpan = dataArray.length - rowIndex; // make sure rowspan doesn't exceed number of rows
+								
+							while(dataArray[rowIndex][cellIndex] != null) // don't overwrite filled-in cells
+								cellIndex++;
 							
-						while(dataArray[rowIndex][cellIndex] != null) // don't overwrite filled-in cells
+							// get cell's text
+							String text = "";
+							List<TextNode> textList = cell.textNodes();
+							for(int j = 0; j < textList.size() - 1; j++) {
+								if(!textList.get(j).toString().trim().isEmpty())
+									text += textList.get(j).toString() + "\r\n";
+							}
+							if(!textList.get(textList.size() - 1).toString().trim().isEmpty()) // if last text piece isn't empty, append without following "   //   "
+								text += textList.get(textList.size() - 1).toString();
+							else
+								if(text.length() >= 2) // if last text piece is empty, remove last "   //   " from text
+									text = text.substring(0, text.length() - 4);
+							
+							// replace html codes with regular characters
+							text = replaceHtmlChars(text);
+							
+							// clear "   //   " from top left cell ("Reel number" cell)
+							if(rowIndex == 0 && cellIndex == 0)
+								text = text.replaceAll("\r\n", " ");
+							
+							for(int i = rowSpan; i > 0; i--) {
+								dataArray[rowIndex + i - 1][cellIndex] = text;
+							}
 							cellIndex++;
-						
-						// get cell's text
-						String text = "";
-						List<TextNode> textList = cell.textNodes();
-						for(int j = 0; j < textList.size() - 1; j++) {
-							if(!textList.get(j).toString().trim().isEmpty())
-								text += textList.get(j).toString() + "   //   ";
 						}
-						if(!textList.get(textList.size() - 1).toString().trim().isEmpty()) // if last text piece isn't empty, append without following "   //   "
-							text += textList.get(textList.size() - 1).toString();
-						else
-							if(text.length() >= 8) // if last text piece is empty, remove last "   //   " from text
-								text = text.substring(0, text.length() - 8);
-						
-						// replace html codes with regular characters
-						text = replaceHtmlChars(text);
-						
-						// clear "   //   " from top left cell ("Reel number" cell)
-						if(rowIndex == 0 && cellIndex == 0)
-							text = text.replaceAll("   //   ", " ");
-						
-						for(int i = rowSpan; i > 0; i--) {
-							dataArray[rowIndex + i - 1][cellIndex] = text;
-						}
-						cellIndex++;
+						rowIndex++;
 					}
-					rowIndex++;
+					linkData.add(dataArray);
 				}
-				data.add(dataArray);
+				data.add(linkData);
 			}
 			
 			// add .csv to filename
 			if(!fileName.endsWith(".csv"))
 				fileName += ".csv";
-			generateCsvFile(fileName);
+			generateCsvFile(url, fileName);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		return System.currentTimeMillis() - startTime;
 	}
 	
 	private String replaceHtmlChars(String str) {
@@ -175,7 +227,7 @@ public class ViewMasterModel {
 		return str;
 	}
 	
-	private void generateCsvFile(String fileName) {
+	private void generateCsvFile(String url, String fileName) {
 		try {
 			FileWriter writer = new FileWriter(fileName);
 			
@@ -186,27 +238,40 @@ public class ViewMasterModel {
 			
 			for(int i = 0; i < data.size(); i++) {
 				
-				if(data.get(i).length == 0) {
+				writer.append("\"" + url + urlList.get(i) + "\"" + "\n");
+				
+				if(data.get(i).size() == 0) {
 					writer.close();
 					throw new IOException();
 				}
 				
-				for(int j = 0; j < data.get(i).length; j++) {
+				for(int j = 0; j < data.get(i).size(); j++) {
 					
-					if(data.get(i)[j].length == 0) {
+					writer.append("\"Table "+ (j + 1) + "\"" + "\n");
+					
+					if(data.get(i).get(j).length == 0) {
 						writer.close();
 						throw new IOException();
 					}
 					
-					for(int k = 0; k < data.get(i)[j].length; k++) {
-						if(data.get(i)[j][k] == null)
-							data.get(i)[j][k] = "";
-						writer.append("\"" + data.get(i)[j][k] + "\"");
-						writer.append(',');
+					for(int k = 0; k < data.get(i).get(j).length; k++) {
+						
+						if(data.get(i).get(j)[0].length == 0) {
+							writer.close();
+							throw new IOException();
+						}
+						
+						for(int m = 0; m < data.get(i).get(j)[k].length; m++) {
+							if(data.get(i).get(j)[k][m] == null)
+								data.get(i).get(j)[k][m] = "";
+							writer.append("\"" + data.get(i).get(j)[k][m] + "\"");
+							writer.append(',');
+						}
+						writer.append("\n");
 					}
-					writer.append('\n');
+					writer.append("\n");
 				}
-				writer.append('\n');
+				writer.append("\n\n\n");
 			}
 			
 			writer.flush();

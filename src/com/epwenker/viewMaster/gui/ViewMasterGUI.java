@@ -46,17 +46,7 @@ public class ViewMasterGUI extends JFrame implements ActionListener {
 		urlField.setPreferredSize(new Dimension(100, 20));
 		
 		saveButton = new JButton("Save");
-		saveButton.addActionListener(this);
-		
-		/*JPanel urlPanel = new JPanel();
-		urlPanel.setPreferredSize(new Dimension(300, 50));
-		urlLabel = new JLabel("URL:");
-		urlField = new JTextField();
-		urlField.setPreferredSize(new Dimension(100, 20));
-		urlPanel.add(urlLabel);
-		urlPanel.add(urlField);*/
-		
-		
+		saveButton.addActionListener(this);		
 		
 		JPanel panel = new JPanel();
 		panel.setBorder(BorderFactory.createEtchedBorder());
@@ -80,8 +70,8 @@ public class ViewMasterGUI extends JFrame implements ActionListener {
 	public void actionPerformed(ActionEvent e) {
 		if(e.getSource() == saveButton) {
 			try {
-				model.saveToFile(getFileName(), urlField.getText());
-				JOptionPane.showMessageDialog(this, "File Saved Successfully.");
+				long elapsedTime = model.saveToFile(getFileName(), urlField.getText());
+				JOptionPane.showMessageDialog(this, "File Saved Successfully.\nTime Elapsed: " + elapsedTime / 1000.0 + " seconds.");
 			} catch (IllegalArgumentException exp) {
 				JOptionPane.showMessageDialog(this, "Unable to save requirements file.");
 			} catch (IllegalStateException exp) {
@@ -91,7 +81,7 @@ public class ViewMasterGUI extends JFrame implements ActionListener {
 	}
 	
 	private String getFileName() {
-		JFileChooser fc = new JFileChooser("./");
+		JFileChooser fc = new JFileChooser();
 		fc.setDialogTitle("ViewMaster Save");
 		fc.setFileFilter(new FileNameExtensionFilter("CSV Files", "csv"));
 		fc.setApproveButtonText("Select");
